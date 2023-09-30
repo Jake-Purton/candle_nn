@@ -12,7 +12,7 @@
 
 use std::fs;
 
-use candle_core::{DType, Result, Tensor, D, Device, CudaDevice};
+use candle_core::{DType, Result, Tensor, D, Device};
 use candle_nn::{loss, ops, Linear, Module, VarBuilder, VarMap, Optimizer};
 
 // giving the inputs all in one vector so input dim = 3 (r, g, b)
@@ -98,7 +98,7 @@ fn main() -> anyhow::Result<()> {
         test_data_results: test_results_tensor,
     };
 
-    let mut trained_model: MultiLevelPerceptron = MultiLevelPerceptron::new(VarBuilder::zeros(DType::F32, &device))?;
+    let trained_model: MultiLevelPerceptron;
     loop {
         match train(m.clone(), &device) {
             Ok(model) => {
