@@ -10,12 +10,14 @@
 
 // MLP is made of many layers
 
+use std::fs;
+
 use candle_core::{DType, Result, Tensor, D, Device};
 use candle_nn::{loss, ops, Linear, Module, VarBuilder, VarMap, Optimizer};
 
 // giving the inputs all in one vector so input dim = 3 (r, g, b)
 
-const VOTE_DIM: usize = 2;
+const INPUT_DIM: usize = 3;
 const RESULTS: usize = 1;
 const EPOCHS: usize = 20;
 const LAYER1_OUT_SIZE: usize = 4;
@@ -42,7 +44,7 @@ impl MultiLevelPerceptron {
     // ln represents a linear with the weights 
     // 	A VarBuilder is used to retrieve variables used by a model. These variables can either come from a pre-trained checkpoint, e.g. using VarBuilder::from_safetensors, or initialized for training, e.g. using
     fn new(vs: VarBuilder) -> Result<Self> {
-        let ln1 = candle_nn::linear(VOTE_DIM, LAYER1_OUT_SIZE, vs.pp("ln1"))?;
+        let ln1 = candle_nn::linear(INPUT_DIM, LAYER1_OUT_SIZE, vs.pp("ln1"))?;
         let ln2 = candle_nn::linear(LAYER1_OUT_SIZE, LAYER2_OUT_SIZE, vs.pp("ln2"))?;
         let ln3 = candle_nn::linear(LAYER2_OUT_SIZE, RESULTS + 1, vs.pp("ln3"))?;
         Ok(Self { ln1, ln2, ln3 })
@@ -63,8 +65,63 @@ fn main() -> anyhow::Result<()> {
     let device = Device::cuda_if_available(0)?;
     println!("{:?}", device);
 
+    
+    
     // put the data in here
+    let train_data: Vec<f32> = fs::read_to_string("training_data.txt")
+    .expect("Should have been able to read the file").split_ascii_whitespace().map(| a: &str | a.parse::<f32>().unwrap()/ 255.0).collect();
 
+    let train_data_tensor = Tensor::from_vec(train_data.clone(), (train_data.len() / INPUT_DIM, INPUT_DIM), &device)?.to_dtype(DType::F32)?;
+
+    
+    let train_data_results: Vec<f32> = fs::read_to_string("training_data_answers.txt")
+    .expect("Should have been able to read the file").split_ascii_whitespace().map(| a: &str | a.parse::<f32>().unwrap() / 255.0).collect();
+
+    let train_data_results_tensor = Tensor::from_vec(train_data_results.clone(), train_data_results.len() / RESULTS, &device)?.to_dtype(DType::F32)?;
+
+    // test
+
+    let test_data: Vec<f32> = fs::read_to_string("test_data.txt")
+    .expect("Should have been able to read the file").split_ascii_whitespace().map(| a: &str | a.parse::<f32>().unwrap() / 255.0).collect();
+
+    let test_data_tensor = Tensor::from_vec(test_data.clone(), (test_data.len() / INPUT_DIM, INPUT_DIM), &device)?.to_dtype(DType::F32)?;
+    
+    let test_data_results: Vec<f32> = fs::read_to_string("test_results.txt")
+    .expect("Should have been able to read the file").split_ascii_whitespace().map(| a: &str | a.parse::<f32>().unwrap() / 255.0).collect();
+
+    let test_data_results_tensor = Tensor::from_vec(test_data_results.clone(), test_data_results.len() / RESULTS, &device)?.to_dtype(DType::F32)?;
+    
+    let m = Dataset {
+        train_data_input: train_data_tensor,
+        train_data_results: train_data_results_tensor,
+        test_data: test_data_tensor,
+        test_data_results: test_data_results_tensor,
+    };
+
+    let trained_model: MultiLevelPerceptron;
+    loop {
+        println!("Trying to train neural network.");
+        match train(m.clone(), &device) {
+            Ok(model) => {
+                trained_model = model;
+                break;
+            },
+            Err(e) => {
+                println!("Error: {:?}", e);
+                continue;
+            }
+        }
+
+    }
+
+    // let final_result = trained_model.forward(&tensor_test_votes)?;
+
+    // let result = final_result
+    //     .argmax(D::Minus1)?
+    //     .to_dtype(DType::F32)?
+    //     .get(0).map(|x| x.to_scalar::<f32>())??;
+    // println!("real_life_votes: {:?}", real_world_votes);
+    // println!("neural_network_prediction_result: {:?}", result);
 
     Ok(())
 }

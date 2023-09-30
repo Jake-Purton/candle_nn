@@ -1,16 +1,11 @@
 from guizero import App, PushButton, Text
 import random
 
-with open("Michael.txt", "r") as f:
-    global names
-    names = f.readlines()
-
 colour = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
 string = ""
 
 def not_purple ():
 
-    global textbox
     global app
     global colour
     global string
@@ -19,11 +14,9 @@ def not_purple ():
 
     colour = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
     app.bg = colour
-    textbox.value = "Name: " + names[random.randint(0, len(names))]
     
 
 def purple():
-    global textbox
     global app
     global colour
     global string
@@ -32,7 +25,6 @@ def purple():
 
     colour = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
     app.bg = colour
-    textbox.value = "Name: " + names[random.randint(0, len(names))]
 
 def printem():
     global string
