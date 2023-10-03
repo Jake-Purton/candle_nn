@@ -45,7 +45,7 @@ impl MultiLevelPerceptron {
     fn new(vs: VarBuilder) -> Result<Self> {
         let ln1 = candle_nn::linear(INPUT_DIM, LAYER1_OUT_SIZE, vs.pp("ln1"))?;
         let ln2 = candle_nn::linear(LAYER1_OUT_SIZE, LAYER2_OUT_SIZE, vs.pp("ln2"))?;
-        let ln3 = candle_nn::linear(LAYER2_OUT_SIZE, OUTPUT_DIM + 1, vs.pp("ln3"))?;
+        let ln3 = candle_nn::linear(LAYER2_OUT_SIZE, OUTPUT_DIM, vs.pp("ln3"))?;
         Ok(Self { ln1, ln2, ln3 })
     }
 
@@ -69,14 +69,40 @@ fn main() -> anyhow::Result<()> {
     let train_data: Vec<u8> = mnist.train_data.iter().flat_map(|array| array.iter()).cloned().collect();
     let train_data_tensor = Tensor::from_vec(train_data.clone(), (train_data.len() / INPUT_DIM, INPUT_DIM), &device)?.to_dtype(DType::F32)?;
 
-    let train_labels_tensor = Tensor::from_vec(mnist.train_labels.clone(), train_data.len() / INPUT_DIM, &device)?.to_dtype(DType::U32)?;
-    println!("here");
+    let vec = mnist.train_labels.clone();
+    let mut train_labels_vec: Vec<u8> = Vec::new();
+
+    for i in vec {
+        for a in 0..=9 {
+            if a == i {
+                train_labels_vec.push(1)
+            } else {
+                train_labels_vec.push(0)
+            }
+        }
+    }
+
+    // 10 * vec.len()
+
+    let train_labels_tensor = Tensor::from_vec(train_labels_vec, (train_data.len() / INPUT_DIM, OUTPUT_DIM), &device)?.to_dtype(DType::U32)?;
     
     let test_data: Vec<u8> = mnist.test_data.iter().flat_map(|array| array.iter()).cloned().collect();
-    let test_data_tensor = Tensor::from_vec(test_data.clone(), (test_data.len() / INPUT_DIM, INPUT_DIM), &device)?.to_dtype(DType::F32)?;
+    let test_data_tensor = Tensor::from_vec(test_data.clone(), test_data.len() * 10 / INPUT_DIM, &device)?.to_dtype(DType::F32)?;
 
-    // turbn this into 001000000 etc for 1-10
-    let test_labels_tensor = Tensor::from_vec(mnist.test_labels.clone(), test_data.len() / INPUT_DIM, &device)?.to_dtype(DType::U32)?;
+    let vec = mnist.test_labels.clone();
+    let mut test_labels_vec: Vec<u8> = Vec::new();
+
+    for i in vec {
+        for a in 0..=9 {
+            if a == i {
+                test_labels_vec.push(1)
+            } else {
+                test_labels_vec.push(0)
+            }
+        }
+    }
+
+    let test_labels_tensor = Tensor::from_vec(test_labels_vec, test_data.len() * 10 / INPUT_DIM, &device)?.to_dtype(DType::U32)?;
     
     let m = Dataset {
         train_data_input: train_data_tensor,
@@ -111,8 +137,7 @@ fn main() -> anyhow::Result<()> {
         let final_result = trained_model.forward(&tensor_test)?;
     
         let results = final_result
-            .argmax(D::Minus1)?
-            .to_dtype(DType::F32)?.to_vec1::<f32>()?;
+            .to_dtype(DType::F32)?.to_vec2::<f32>()?;
     
         println!("results: {:?}", results);
     }
