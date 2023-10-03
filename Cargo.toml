@@ -1,5 +1,5 @@
 [package]
-name = "candle"
+name = "candle-test"
 version = "0.1.0"
 edition = "2021"
 
@@ -12,3 +12,5 @@ candle-core = {version = "0.2.0", features = ["cuda"]}
 candle-datasets = "0.2.0"
 anyhow = "1.0.75"
 rust-mnist = "0.2.0"
+clap = "4.4.6"
+rand = "0.8.5"
