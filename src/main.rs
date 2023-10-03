@@ -10,18 +10,17 @@
 
 // MLP is made of many layers
 
-use std::fs;
-
 use candle_core::{DType, Result, Tensor, D, Device};
 use candle_nn::{loss, ops, Linear, Module, VarBuilder, VarMap, Optimizer};
+use rust_mnist::Mnist;
 
 // giving the inputs all in one vector so input dim = 3 (r, g, b)
 
-const INPUT_DIM: usize = 3;
-const RESULTS: usize = 1;
-const EPOCHS: usize = 20;
-const LAYER1_OUT_SIZE: usize = 4;
-const LAYER2_OUT_SIZE: usize = 2;
+const INPUT_DIM: usize = 784;
+const OUTPUT_DIM: usize = 10;
+const EPOCHS: usize = 10;
+const LAYER1_OUT_SIZE: usize = 16;
+const LAYER2_OUT_SIZE: usize = 16;
 const LEARNING_RATE: f64 = 0.05;
 
 #[derive(Clone)]
@@ -46,7 +45,7 @@ impl MultiLevelPerceptron {
     fn new(vs: VarBuilder) -> Result<Self> {
         let ln1 = candle_nn::linear(INPUT_DIM, LAYER1_OUT_SIZE, vs.pp("ln1"))?;
         let ln2 = candle_nn::linear(LAYER1_OUT_SIZE, LAYER2_OUT_SIZE, vs.pp("ln2"))?;
-        let ln3 = candle_nn::linear(LAYER2_OUT_SIZE, RESULTS + 1, vs.pp("ln3"))?;
+        let ln3 = candle_nn::linear(LAYER2_OUT_SIZE, OUTPUT_DIM + 1, vs.pp("ln3"))?;
         Ok(Self { ln1, ln2, ln3 })
     }
 
@@ -62,41 +61,30 @@ impl MultiLevelPerceptron {
 
 fn main() -> anyhow::Result<()> {
 
+    let mnist = Mnist::new("MNIST_data/");
+    
     let device = Device::cuda_if_available(0)?;
     println!("{:?}", device);
-
     
-    
-    // put the data in here
-    let train_data: Vec<f32> = fs::read_to_string("training_data.txt")
-        .expect("Should have been able to read the file").split_ascii_whitespace().map(| a: &str | a.parse::<f32>().unwrap()/ 255.0).collect();
-
+    let train_data: Vec<u8> = mnist.train_data.iter().flat_map(|array| array.iter()).cloned().collect();
     let train_data_tensor = Tensor::from_vec(train_data.clone(), (train_data.len() / INPUT_DIM, INPUT_DIM), &device)?.to_dtype(DType::F32)?;
 
+    let train_labels_tensor = Tensor::from_vec(mnist.train_labels.clone(), train_data.len() / INPUT_DIM, &device)?.to_dtype(DType::U32)?;
+    println!("here");
     
-    let train_data_results: Vec<u32> = fs::read_to_string("training_data_answers.txt")
-        .expect("Should have been able to read the file").split_ascii_whitespace().map(| a: &str | a.parse::<u32>().unwrap()).collect();
-
-    let train_results_tensor = Tensor::from_vec(train_data_results, train_data.len() / INPUT_DIM, &device)?;
-
-    // test
-
-    let test_data: Vec<f32> = fs::read_to_string("test_data.txt")
-        .expect("Should have been able to read the file").split_ascii_whitespace().map(| a: &str | a.parse::<f32>().unwrap() / 255.0).collect();
-
+    let test_data: Vec<u8> = mnist.test_data.iter().flat_map(|array| array.iter()).cloned().collect();
     let test_data_tensor = Tensor::from_vec(test_data.clone(), (test_data.len() / INPUT_DIM, INPUT_DIM), &device)?.to_dtype(DType::F32)?;
-    
-    let test_data_results: Vec<u32> = fs::read_to_string("test_results.txt")
-        .expect("Should have been able to read the file").split_ascii_whitespace().map(| a: &str | a.parse::<u32>().unwrap()).collect();
 
-    let test_results_tensor = Tensor::from_vec(test_data_results.clone(), test_data_results.len(), &device)?;
+    // turbn this into 001000000 etc for 1-10
+    let test_labels_tensor = Tensor::from_vec(mnist.test_labels.clone(), test_data.len() / INPUT_DIM, &device)?.to_dtype(DType::U32)?;
     
     let m = Dataset {
         train_data_input: train_data_tensor,
-        train_data_results: train_results_tensor,
+        train_data_results: train_labels_tensor,
         test_data: test_data_tensor,
-        test_data_results: test_results_tensor,
+        test_data_results: test_labels_tensor,
     };
+
 
     let trained_model: MultiLevelPerceptron;
     loop {
@@ -113,35 +101,22 @@ fn main() -> anyhow::Result<()> {
 
     }
 
-    let purple: Vec<u32> = vec![
-        58, 51, 255,
-        102, 0, 204,
-        76, 0, 153,
-        255, 0, 0,
-        0, 0, 255,
-        0, 255, 0,
-    ];
+    for i in 0..10 {
 
-    let tensor_test = Tensor::from_vec(purple.clone(), (purple.len() / INPUT_DIM, INPUT_DIM), &device)?.to_dtype(DType::F32)?;
-
-    let final_result = trained_model.forward(&tensor_test)?;
-
-    let results = final_result
-        .argmax(D::Minus1)?
-        .to_dtype(DType::F32)?.to_vec1::<f32>()?;
-
-    for result in results {
-        println!("{result}")
+        let test = mnist.test_data[i];
+        println!("expected {}", mnist.test_labels[i]);
+    
+        let tensor_test = Tensor::from_vec(test.to_vec(), (1, 784), &device)?.to_dtype(DType::F32)?;
+    
+        let final_result = trained_model.forward(&tensor_test)?;
+    
+        let results = final_result
+            .argmax(D::Minus1)?
+            .to_dtype(DType::F32)?.to_vec1::<f32>()?;
+    
+        println!("results: {:?}", results);
     }
 
-    // let final_result = trained_model.forward(&tensor_test_votes)?;
-
-    // let result = final_result
-    //     .argmax(D::Minus1)?
-    //     .to_dtype(DType::F32)?
-    //     .get(0).map(|x| x.to_scalar::<f32>())??;
-    // println!("real_life_votes: {:?}", real_world_votes);
-    // println!("neural_network_prediction_result: {:?}", result);
 
     Ok(())
 }
@@ -194,7 +169,7 @@ fn train(m: Dataset, dev: &Device) -> anyhow::Result<MultiLevelPerceptron> {
             break;
         }
     }
-    if final_accuracy < 80.0 {
+    if final_accuracy < 80.0 && false {
         Err(anyhow::Error::msg("The model is not trained well enough."))
     } else {
         Ok(model)

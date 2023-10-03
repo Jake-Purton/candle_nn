@@ -246,6 +246,7 @@ dependencies = [
  "candle-core",
  "candle-datasets",
  "candle-nn",
+ "rust-mnist",
 ]
 
 [[package]]
@@ -1624,6 +1625,15 @@ dependencies = [
  "untrusted",
  "web-sys",
  "winapi",
+]
+
+[[package]]
+name = "rust-mnist"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f701613ce754c4614b557827f506381b486a29c98b55046765800e79208d3912"
+dependencies = [
+ "log",
 ]
 
 [[package]]

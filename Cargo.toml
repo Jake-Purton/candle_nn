@@ -11,3 +11,4 @@ candle-nn = {version = "0.2.0", features = ["cuda"]}
 candle-core = {version = "0.2.0", features = ["cuda"]}
 candle-datasets = "0.2.0"
 anyhow = "1.0.75"
+rust-mnist = "0.2.0"
