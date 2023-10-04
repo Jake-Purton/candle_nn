@@ -18,11 +18,14 @@ pub fn train(m: Dataset, dev: &Device) -> anyhow::Result<MultiLevelPerceptron> {
 
         println!("{logits}, here jakey");
 
+        // D::Minus1 might mess me up here
         let log_sm = ops::log_softmax(&logits, D::Minus1)?;
         let loss = loss::nll(&log_sm, &train_labels)?;
         sgd.backward_step(&loss)?;
 
         let test_logits = model.forward(&test_images)?;
+
+        // check this for a vector answer rather than a scalar / 1d
         let sum_ok = test_logits
             .argmax(D::Minus1)?
             .eq(&test_labels)?
