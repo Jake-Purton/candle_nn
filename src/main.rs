@@ -1,12 +1,14 @@
 mod train;
+mod train_mlp;
 
 use candle_core::{Device, Result, Tensor, DType, D};
 use candle_nn::{Linear, Module, VarBuilder, VarMap, ops, loss};
 use train::train;
 use rust_mnist::Mnist;
+use train_mlp::training_mlp;
 
 const LEARNING_RATE: f64 = 0.05;
-const EPOCHS: usize = 10;
+const EPOCHS: usize = 100000;
 
 pub struct MultiLevelPerceptron {
     ln1: Linear,
@@ -70,15 +72,28 @@ fn main() -> Result<()> {
 
     let train_images: Vec<f32> = mnist.train_data.clone().iter().flat_map(|a| a.iter().map(|a| a.clone() as f32)).collect();
     let train_labels: Vec<u8> = mnist.train_labels.clone();
+    let num_images = mnist.train_data.len();
     let test_images: Vec<f32> = mnist.test_data.clone().iter().flat_map(|a| a.iter().map(|a| a.clone() as f32)).collect();
     let test_labels: Vec<u8> = mnist.test_labels.clone();
+    let num_test_images = mnist.test_data.len();
 
     let trn_imgs_tensor: Tensor = Tensor::from_vec(train_images, (num_images, 784), &device)?;
-    let trn_lbls_tensor: Tensor ;
-    let tst_imgs_tensor: Tensor ;
-    let tst_lbls_tensor: Tensor ;
+    let trn_lbls_tensor: Tensor = Tensor::from_vec(train_labels, num_images, &device)?;
+    let tst_imgs_tensor: Tensor = Tensor::from_vec(test_images, (num_test_images, 784), &device)?;
+    let tst_lbls_tensor: Tensor = Tensor::from_vec(test_labels, num_test_images, &device)?;
+
+    let data = Dataset {
+        train_images: trn_imgs_tensor,
+        train_labels: trn_lbls_tensor,
+        test_images: tst_imgs_tensor,
+        test_labels: tst_lbls_tensor,
+    };
 
     // train(data, &device);
+    match training_mlp(data, &device) {
+        Ok(_) => (),
+        Err(a) => println!("{a}"),
+    }
 
     Ok(())
 }
